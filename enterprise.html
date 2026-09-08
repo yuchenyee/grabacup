@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- SEO + SCHEMA START -->
+<title>企業咖啡採購｜GRAB A CUP 企業專區・企業專屬價格</title>
+<meta name="description" content="GRAB A CUP 葛拉卡咖啡企業採購專區，適合辦公室備品、員工福利、活動贈禮與大量採購。合作企業登入企業代號後查看企業專屬採購價格。">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<meta name="googlebot" content="index,follow,max-image-preview:large">
+<link rel="canonical" href="enterprise.html">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="GRAB A CUP 葛拉卡咖啡">
+<meta property="og:title" content="企業咖啡採購｜GRAB A CUP 企業專區・企業專屬價格">
+<meta property="og:description" content="GRAB A CUP 葛拉卡咖啡企業採購專區，適合辦公室備品、員工福利、活動贈禮與大量採購。合作企業登入企業代號後查看企業專屬採購價格。">
+<meta property="og:url" content="enterprise.html">
+<meta property="og:image" content="images/07-凱娜克拿鐵.png">
+<meta property="og:image:alt" content="企業咖啡採購">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="企業咖啡採購｜GRAB A CUP 企業專區・企業專屬價格">
+<meta name="twitter:description" content="GRAB A CUP 葛拉卡咖啡企業採購專區，適合辦公室備品、員工福利、活動贈禮與大量採購。合作企業登入企業代號後查看企業專屬採購價格。">
+<meta name="twitter:image" content="images/07-凱娜克拿鐵.png">
+<meta name="theme-color" content="#572314">
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Organization","@id":"./#organization","name":"GRAB A CUP 葛拉卡咖啡","alternateName":["GRAB A CUP","葛拉卡咖啡","Grabacup"],"slogan":"Grab One. Go Anywhere."},{"@type":"WebPage","@id":"enterprise.html#webpage","name":"企業咖啡採購｜GRAB A CUP 企業專區・企業專屬價格","description":"GRAB A CUP 葛拉卡咖啡企業採購專區，適合辦公室備品、員工福利、活動贈禮與大量採購。合作企業登入企業代號後查看企業專屬採購價格。","inLanguage":"zh-Hant-TW"},{"@type":"Service","@id":"enterprise.html#service","name":"GRAB A CUP 企業採購服務","provider":{"@id":"./#organization"},"description":"提供辦公室備品、員工福利、活動贈禮與大量採購的企業合作服務。合作企業登入後可查看企業專屬價格。","serviceType":"企業咖啡與沖泡飲品採購"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"首頁","item":"index.html"},{"@type":"ListItem","position":2,"name":"企業專區","item":"enterprise.html"}]}]}</script>
+<!-- SEO + SCHEMA END -->
+  
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700;800;900&family=Noto+Serif+TC:wght@600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <div class="container nav">
+    <a class="logo" href="index.html" aria-label="回到首頁">GRAB A CUP<small>葛拉卡咖啡</small></a>
+    <nav class="links" aria-label="主要導覽">
+      <a href="product.html">產品介紹</a><a href="stores.html">門市查詢</a><a href="faq.html">常見問題</a>
+      <a href="contact.html">聯絡我們</a><a class="active" href="enterprise.html">企業專區</a>
+      <a href="shopping-guide.html">購物須知</a><a href="privacy.html">隱私權政策</a>
+    </nav>
+    <a class="btn nav-cta" href="#enterpriseLogin">企業登入</a>
+  </div>
+</header>
+
+<main class="enterprise-page">
+  <section class="enterprise-hero">
+    <div class="container enterprise-hero__grid">
+      <div>
+        <div class="eyebrow">CORPORATE PURCHASE</div>
+        <h1>企業採購專區</h1>
+        <p class="enterprise-lead">辦公室備品、員工福利、活動贈禮與大量採購，登入企業代號即可查看 <strong>企業專屬 8 折價</strong>。</p>
+        <div class="enterprise-points">
+          <span>✓ 全系列企業價 8 折</span>
+          <span>✓ 9 款口味自由選購</span>
+          <span>✓ 採購價格登入後顯示</span>
+        </div>
+      </div>
+      <div id="enterpriseLogin" class="enterprise-login-card">
+        <span class="enterprise-login-card__tag">企業身份驗證</span>
+        <h2>輸入企業代號</h2>
+        <p>企業價格僅提供合作企業使用。請輸入由 GRAB A CUP 提供的企業代號。</p>
+        <form id="enterpriseLoginForm">
+          <label>企業代號
+            <input id="enterpriseCode" name="code" autocomplete="off" required placeholder="請輸入企業代號">
+          </label>
+          <button class="btn" type="submit">登入企業專區 →</button>
+          <p id="enterpriseLoginStatus" class="enterprise-status" aria-live="polite"></p>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <section class="section enterprise-how">
+    <div class="container">
+      <div class="section-heading center">
+        <div class="eyebrow">HOW IT WORKS</div>
+        <h2>企業採購更簡單</h2>
+      </div>
+      <div class="enterprise-how__grid">
+        <article><span>01</span><h3>取得企業代號</h3><p>由品牌提供合作企業專屬代號，不公開於一般零售頁。</p></article>
+        <article><span>02</span><h3>登入查看企業價</h3><p>驗證成功後，全系列商品自動顯示一般售價與企業 8 折價。</p></article>
+        <article><span>03</span><h3>選擇數量完成採購</h3><p>挑選商品與數量後，直接進入企業採購結帳流程。</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section id="enterpriseProducts" class="section enterprise-products-section">
+    <div class="container">
+      <div class="enterprise-section-head">
+        <div>
+          <div class="eyebrow">ENTERPRISE PRICE</div>
+          <h2>企業採購商品</h2>
+          <p id="enterprisePriceHint">登入企業代號後，即可查看企業 8 折價格。</p>
+        </div>
+        <div id="enterpriseSession" class="enterprise-session" hidden>
+          <span>企業身份已驗證</span>
+          <button type="button" id="enterpriseLogout">登出</button>
+        </div>
+      </div>
+
+      <div class="enterprise-grid">
+        <article class="enterprise-product" data-product="peach-oolong">
+  <img src="images/01-水蜜桃烏龍.png" alt="水蜜桃烏龍">
+  <div class="enterprise-product__body">
+    <div class="enterprise-product__meta">1 盒 10 包</div>
+    <h3>水蜜桃烏龍</h3>
+    <div class="enterprise-pricing">
+      <span class="enterprise-retail">售價 NT$178</span>
+      <strong>企業價登入後顯示</strong>
+    </div>
+    <div class="enterprise-qty">
+      <button type="button" data-minus="peach-oolong" aria-label="減少數量">−</button>
+      <input type="number" min="0" max="99" value="0" data-qty="peach-oolong" aria-label="水蜜桃烏龍企業採購數量">
+      <button type="button" data-plus="peach-oolong" aria-label="增加數量">＋</button>
+    </div>
+  </div>
+</article>
+<article class="enterprise-product" data-product="coconut-latte">
+  <img src="images/02-生椰拿鐵.png" alt="生椰拿鐵">
+  <div class="enterprise-product__body">
+    <div class="enterprise-product__meta">1 盒 10 包</div>
+    <h3>生椰拿鐵</h3>
+    <div class="enterprise-pricing">
+      <span class="enterprise-retail">售價 NT$178</span>
+      <strong>企業價登入後顯示</strong>
+    </div>
+    <div class="enterprise-qty">
+      <button type="button" data-minus="coconut-latte" aria-label="減少數量">−</button>
+      <input type="number" min="0" max="99" value="0" data-qty="coconut-latte" aria-label="生椰拿鐵企業採購數量">
+      <button type="button" data-plus="coconut-latte" aria-label="增加數量">＋</button>
+    </div>
+  </div>
+</article>
+<article class="enterprise-product" data-product="jasmine-cream-americano">
+  <img src="images/03-茉莉奶蓋美式.png" alt="茉莉奶蓋美式">
+  <div class="enterprise-product__body">
+    <div class="enterprise-product__meta">1 盒 10 包</div>
+    <h3>茉莉奶蓋美式</h3>
+    <div class="enterprise-pricing">
+      <span class="enterprise-retail">售價 NT$178</span>
+      <strong>企業價登入後顯示</strong>
+    </div>
+    <div class="enterprise-qty">
+      <button type="button" data-minus="jasmine-cream-americano" aria-label="減少數量">−</button>
+      <input type="number" min="0" max="99" value="0" data-qty="jasmine-cream-americano" aria-label="茉莉奶蓋美式企業採購數量">
+      <button type="button" data-plus="jasmine-cream-americano" aria-label="增加數量">＋</button>
+    </div>
+  </div>
+</article>
+<article class="enterprise-product" data-product="jasmine-light-latte">
+  <img src="images/04-茉莉輕雪拿鐵.png" alt="茉莉輕雪拿鐵">
+  <div class="enterprise-product__body">
+    <div class="enterprise-product__meta">1 盒 10 包</div>
+    <h3>茉莉輕雪拿鐵</h3>
+    <div class="enterprise-pricing">
+      <span class="enterprise-retail">售價 NT$168</span>
+      <strong>企業價登入後顯示</strong>
+    </div>
+    <div class="enterprise-qty">
+      <button type="button" data-minus="jasmine-light-latte" aria-label="減少數量">−</button>
+      <input type="number" min="0" max="99" value="0" data-qty="jasmine-light-latte" aria-label="茉莉輕雪拿鐵企業採購數量">
+      <button type="button" data-plus="jasmine-light-latte" aria-label="增加數量">＋</button>
+    </div>
+  </div>
+</article>
+<article class="enterprise-product" data-product="classic-latte">
+  <img src="images/05-拿鐵時光.png" alt="拿鐵時光">
+  <div class="enterprise-product__body">
+    <div class="enterprise-product__meta">1 盒 10 包</div>
+    <h3>拿鐵時光</h3>
+    <div class="enterprise-pricing">
+      <span class="enterprise-retail">售價 NT$158</span>
+      <strong>企業價登入後顯示</strong>
+    </div>
+    <div class="enterprise-qty">
+      <button type="button" data-minus="classic-latte" aria-label="減少數量">−</button>
+      <input type="number" min="0" max="99" value="0" data-qty="classic-latte" aria-label="拿鐵時光企業採購數量">
+      <button type="button" data-plus="classic-latte" aria-label="增加數量">＋</button>
+    </div>
+  </div>
+</article>
+<article class="enterprise-product" data-product="rouge-spring-americano">
+  <img src="images/06-胭脂春美式.png" alt="胭脂春美式">
+  <div class="enterprise-product__body">
+    <div class="enterprise-product__meta">1 盒 10 包</div>
+    <h3>胭脂春美式</h3>
+    <div class="enterprise-pricing">
+      <span class="enterprise-retail">售價 NT$168</span>
+      <strong>企業價登入後顯示</strong>
+    </div>
+    <div class="enterprise-qty">
+      <button type="button" data-minus="rouge-spring-americano" aria-label="減少數量">−</button>
+      <input type="number" min="0" max="99" value="0" data-qty="rouge-spring-americano" aria-label="胭脂春美式企業採購數量">
+      <button type="button" data-plus="rouge-spring-americano" aria-label="增加數量">＋</button>
+    </div>
+  </div>
+</article>
+<article class="enterprise-product" data-product="kainak-latte">
+  <img src="images/07-凱娜克拿鐵.png" alt="凱娜克拿鐵">
+  <div class="enterprise-product__body">
+    <div class="enterprise-product__meta">1 盒 10 包</div>
+    <h3>凱娜克拿鐵</h3>
+    <div class="enterprise-pricing">
+      <span class="enterprise-retail">售價 NT$210</span>
+      <strong>企業價登入後顯示</strong>
+    </div>
+    <div class="enterprise-qty">
+      <button type="button" data-minus="kainak-latte" aria-label="減少數量">−</button>
+      <input type="number" min="0" max="99" value="0" data-qty="kainak-latte" aria-label="凱娜克拿鐵企業採購數量">
+      <button type="button" data-plus="kainak-latte" aria-label="增加數量">＋</button>
+    </div>
+  </div>
+</article>
+<article class="enterprise-product" data-product="pistachio-macchiato">
+  <img src="images/08-開心果瑪奇朵.png" alt="開心果瑪奇朵">
+  <div class="enterprise-product__body">
+    <div class="enterprise-product__meta">1 盒 10 包</div>
+    <h3>開心果瑪奇朵</h3>
+    <div class="enterprise-pricing">
+      <span class="enterprise-retail">售價 NT$198</span>
+      <strong>企業價登入後顯示</strong>
+    </div>
+    <div class="enterprise-qty">
+      <button type="button" data-minus="pistachio-macchiato" aria-label="減少數量">−</button>
+      <input type="number" min="0" max="99" value="0" data-qty="pistachio-macchiato" aria-label="開心果瑪奇朵企業採購數量">
+      <button type="button" data-plus="pistachio-macchiato" aria-label="增加數量">＋</button>
+    </div>
+  </div>
+</article>
+<article class="enterprise-product" data-product="berry-cocoa-light-milk-tea">
+  <img src="images/09-綜合莓可可輕乳茶.png" alt="綜合莓可可輕乳茶">
+  <div class="enterprise-product__body">
+    <div class="enterprise-product__meta">1 盒 10 包</div>
+    <h3>綜合莓可可輕乳茶</h3>
+    <div class="enterprise-pricing">
+      <span class="enterprise-retail">售價 NT$188</span>
+      <strong>企業價登入後顯示</strong>
+    </div>
+    <div class="enterprise-qty">
+      <button type="button" data-minus="berry-cocoa-light-milk-tea" aria-label="減少數量">−</button>
+      <input type="number" min="0" max="99" value="0" data-qty="berry-cocoa-light-milk-tea" aria-label="綜合莓可可輕乳茶企業採購數量">
+      <button type="button" data-plus="berry-cocoa-light-milk-tea" aria-label="增加數量">＋</button>
+    </div>
+  </div>
+</article>
+      </div>
+
+      <div class="enterprise-order-bar">
+        <div>
+          <span>企業採購小計</span>
+          <strong id="enterpriseSubtotal">請先登入</strong>
+        </div>
+        <button class="btn" id="enterpriseCheckoutBtn" type="button" disabled>企業採購結帳 →</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="enterpriseCheckout" class="section enterprise-checkout-section" hidden>
+    <div class="container">
+      <div class="enterprise-checkout-card">
+        <div class="eyebrow">CORPORATE CHECKOUT</div>
+        <h2>企業採購資料</h2>
+        <form id="enterpriseCheckoutForm">
+          <div class="enterprise-form-grid">
+            <label>公司名稱<input name="company" required></label>
+            <label>統一編號<input name="taxId" inputmode="numeric"></label>
+            <label>聯絡人<input name="name" required></label>
+            <label>聯絡電話<input name="phone" required></label>
+            <label>Email<input name="email" type="email" required></label>
+            <label>配送方式
+              <select name="shippingMethod">
+                <option value="home">宅配（台灣本島）</option>
+                <option value="chilled">宅配冷藏（台灣本島）</option>
+                <option value="frozen">宅配冷凍（台灣本島）</option>
+                <option value="post">郵寄</option>
+              </select>
+            </label>
+          </div>
+          <label>採購備註<textarea name="note" rows="4" placeholder="例如：希望到貨日期、發票抬頭、採購需求等"></textarea></label>
+          <div class="enterprise-checkout-summary">
+            <span>企業採購商品總額</span><strong id="enterpriseCheckoutTotal">NT$0</strong>
+          </div>
+          <p class="enterprise-small">企業價為一般售價 8 折，預設不再與一般零售滿件／滿額折扣重複套用；配送費依購物須知計算。</p>
+          <button class="btn" type="submit">確認企業訂單並前往付款 →</button>
+          <p id="enterpriseCheckoutStatus" class="enterprise-status" aria-live="polite"></p>
+        </form>
+      </div>
+    </div>
+  </section>
+<section class="section answer-engine-section" aria-labelledby="answer-engine-title">
+<div class="container">
+  <div class="answer-engine-head">
+    <div class="eyebrow">QUICK ANSWERS</div>
+    <h2 id="answer-engine-title">企業採購快速解答</h2>
+    <p class="lead">辦公室備品、員工福利與活動贈禮的採購方式一次看懂。</p>
+  </div>
+  <div class="answer-grid"><div class="answer-card"><h3>企業採購價格是多少？</h3><p>合作企業登入企業代號後，可查看企業專屬價格；目前企業價設定為一般售價 8 折。</p></div><div class="answer-card"><h3>企業價會和一般購物優惠一起折嗎？</h3><p>目前企業 8 折價不與一般零售的滿件折扣或滿額折扣重複套用，避免折扣重複計算。</p></div><div class="answer-card"><h3>企業採購怎麼下單？</h3><p>取得企業代號後登入企業專區，選擇商品與數量，填寫公司名稱、統編、聯絡資料與配送方式後即可建立企業訂單。</p></div><div class="answer-card"><h3>企業採購適合哪些用途？</h3><p>適合辦公室咖啡備品、員工福利、活動贈禮、會議飲品與大量採購需求。</p></div></div>
+</div>
+</section>
+</main>
+
+<footer class="site-footer">
+  <div class="container"><div class="logo">GRAB A CUP<small>葛拉卡咖啡</small></div><p>企業採購合作與企業代號申請，請透過聯絡我們與品牌窗口洽詢。</p></div>
+</footer>
+
+<script src="enterprise.js"></script>
+</body>
+</html>

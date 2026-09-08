@@ -1,0 +1,105 @@
+{
+  "brand": "GRAB A CUP 葛拉卡咖啡",
+  "language": "zh-Hant-TW",
+  "tagline": "Grab One. Go Anywhere.",
+  "pages": [
+    {
+      "type": "home",
+      "url": "/index.html"
+    },
+    {
+      "type": "products",
+      "url": "/product.html"
+    },
+    {
+      "type": "stores",
+      "url": "/stores.html"
+    },
+    {
+      "type": "enterprise",
+      "url": "/enterprise.html"
+    },
+    {
+      "type": "faq",
+      "url": "/faq.html"
+    },
+    {
+      "type": "shopping_guide",
+      "url": "/shopping-guide.html"
+    }
+  ],
+  "products": [
+    {
+      "name": "水蜜桃烏龍",
+      "url": "/product-peach-oolong.html",
+      "price": 178,
+      "currency": "TWD",
+      "package": "10包／盒",
+      "flavor": "清甜水蜜桃果香 × 高山烏龍茶韻"
+    },
+    {
+      "name": "生椰拿鐵",
+      "url": "/product-coconut-latte.html",
+      "price": 178,
+      "currency": "TWD",
+      "package": "10包／盒",
+      "flavor": "椰香清爽 × 咖啡醇厚"
+    },
+    {
+      "name": "茉莉奶蓋美式",
+      "url": "/product-jasmine-cream-americano.html",
+      "price": 178,
+      "currency": "TWD",
+      "package": "10包／盒",
+      "flavor": "茉莉花香 × 綿密奶蓋"
+    },
+    {
+      "name": "茉莉輕雪拿鐵",
+      "url": "/product-jasmine-light-latte.html",
+      "price": 168,
+      "currency": "TWD",
+      "package": "10包／盒",
+      "flavor": "茉莉花香 × 輕盈奶韻"
+    },
+    {
+      "name": "拿鐵時光",
+      "url": "/product-classic-latte.html",
+      "price": 158,
+      "currency": "TWD",
+      "package": "10包／盒",
+      "flavor": "經典風味 × 順口平衡"
+    },
+    {
+      "name": "胭脂春美式",
+      "url": "/product-rouge-spring-americano.html",
+      "price": 168,
+      "currency": "TWD",
+      "package": "10包／盒",
+      "flavor": "花果清香 × 清爽回甘"
+    },
+    {
+      "name": "凱娜克拿鐵",
+      "url": "/product-kainak-latte.html",
+      "price": 210,
+      "currency": "TWD",
+      "package": "10包／盒",
+      "flavor": "經典南洋風味 × 絲滑奶香"
+    },
+    {
+      "name": "開心果瑪奇朵",
+      "url": "/product-pistachio-macchiato.html",
+      "price": 198,
+      "currency": "TWD",
+      "package": "10包／盒",
+      "flavor": "濃郁堅果香 × 綿滑奶霜"
+    },
+    {
+      "name": "綜合莓可可輕乳茶",
+      "url": "/product-berry-cocoa-light-milk-tea.html",
+      "price": 188,
+      "currency": "TWD",
+      "package": "10包／盒",
+      "flavor": "綜合莓果 × 可可 × 輕盈奶香"
+    }
+  ]
+}

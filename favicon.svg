@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>GRAB A CUP</title>
+  <rect width="64" height="64" rx="15" fill="#572314"/>
+  <path d="M24 15c-4 5 4 7 0 12M34 13c-4 5 4 8 0 13" fill="none" stroke="#efb86c" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="M15 29h31v11c0 8-6 14-14 14h-3c-8 0-14-6-14-14V29Z" fill="#fffaf3"/>
+  <path d="M46 33h3a7 7 0 0 1 0 14h-5" fill="none" stroke="#fffaf3" stroke-width="4" stroke-linecap="round"/>
+  <path d="M20 35h21" stroke="#c91820" stroke-width="3" stroke-linecap="round"/>
+</svg>

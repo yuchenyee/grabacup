@@ -1,15 +1,97 @@
 <!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CRM 管理｜GRAB A CUP</title><meta name="robots" content="noindex,nofollow"><link rel="stylesheet" href="style.css"><style>
-.crm{max-width:1280px;margin:45px auto;padding:0 22px}.box{background:#fff;border:1px solid #eadfd6;border-radius:20px;padding:22px;margin:18px 0;overflow:auto}.crm input,.crm select,.crm textarea{padding:9px;border:1px solid #ddd0c5;border-radius:9px}.crm table{width:100%;border-collapse:collapse;min-width:950px}.crm th,.crm td{padding:11px;border-bottom:1px solid #eee;text-align:left;vertical-align:top}.tags label{display:inline-flex;gap:4px;margin:3px;font-size:12px}.hidden{display:none}</style><link rel="icon" type="image/svg+xml" href="favicon.svg"></head><body><header class="site-header"><div class="container nav"><a class="logo" href="index.html" aria-label="GRAB A CUP 首頁">GRAB A CUP<small>葛拉卡咖啡</small></a><button class="menu-toggle" aria-expanded="false" aria-label="開啟選單"><span></span><span></span><span></span></button><nav class="links" aria-label="主要導覽"><a href="index.html">網站首頁</a><a href="member.html">會員中心</a><a href="crm-admin.html">CRM 管理</a></nav></div></header><main class="crm"><div class="eyebrow">CRM ADMIN</div><h1>會員與訂單管理</h1>
-<section id="loginBox" class="box"><h2>管理登入</h2><form id="login"><input name="password" type="password" placeholder="管理密碼" required><button class="btn">登入</button></form><p id="status"></p></section>
-<section id="app" class="hidden"><div class="box"><h2>客戶資料與標籤</h2><table><thead><tr><th>客戶</th><th>訂單 / LTV</th><th>標籤</th><th>備註</th><th></th></tr></thead><tbody id="customers"></tbody></table></div>
+.crm{max-width:1280px;margin:45px auto;padding:0 22px}.box{background:#fff;border:1px solid #eadfd6;border-radius:20px;padding:22px;margin:18px 0;overflow:auto}.crm input,.crm select,.crm textarea{padding:9px;border:1px solid #ddd0c5;border-radius:9px}.crm table{width:100%;border-collapse:collapse;min-width:950px}.crm th,.crm td{padding:11px;border-bottom:1px solid #eee;text-align:left;vertical-align:top}.tags label{display:inline-flex;gap:4px;margin:3px;font-size:12px}.hidden{display:none}.crm-login-form{display:grid;grid-template-columns:minmax(220px,360px) auto;gap:12px;align-items:center}.crm-login-form .password-wrap{min-width:0}.crm-security-note{margin:10px 0 0;color:#76665d;font-size:13px}.crm-session-bar{display:flex;justify-content:space-between;align-items:center;gap:18px;border-color:#d9eadc;background:#f7fff8}.crm-session-copy{display:grid;gap:3px}.crm-session-copy strong{color:#397343}.crm-session-copy small{color:#76665d}.crm-logout{background:#572314}.crm button{cursor:pointer}@media(max-width:620px){.crm-login-form{grid-template-columns:1fr}.crm-login-form .btn,.crm-logout{width:100%}.crm-session-bar{align-items:stretch;flex-direction:column}}</style><link rel="icon" type="image/svg+xml" href="favicon.svg"></head><body><header class="site-header"><div class="container nav"><a class="logo" href="index.html" aria-label="GRAB A CUP 首頁">GRAB A CUP<small>葛拉卡咖啡</small></a><button class="menu-toggle" aria-expanded="false" aria-label="開啟選單"><span></span><span></span><span></span></button><nav class="links" aria-label="主要導覽"><a href="index.html">網站首頁</a><a href="member.html">會員中心</a><a href="crm-admin.html">CRM 管理</a></nav></div></header><main class="crm"><div class="eyebrow">CRM ADMIN</div><h1>會員與訂單管理</h1>
+<section id="loginBox" class="box"><h2>管理登入</h2><form id="login" class="crm-login-form"><input name="password" type="password" placeholder="管理密碼" autocomplete="current-password" required><button id="loginBtn" class="btn" type="submit">登入 CRM</button></form><p class="crm-security-note">為保障資料安全，登入後若連續 60 秒沒有操作，系統會自動登出。</p><p id="status" role="alert" aria-live="polite"></p></section>
+<section id="app" class="hidden"><div class="crm-session-bar box"><div class="crm-session-copy"><strong>✓ 已安全登入 CRM</strong><small id="idleCountdown">閒置登出倒數：60 秒</small></div><button id="logoutBtn" class="btn crm-logout" type="button">登出 CRM</button></div><div class="box"><h2>客戶資料與標籤</h2><table><thead><tr><th>客戶</th><th>訂單 / LTV</th><th>標籤</th><th>備註</th><th></th></tr></thead><tbody id="customers"></tbody></table></div>
 <div class="box"><h2>訂單、付款與物流</h2><table><thead><tr><th>訂單</th><th>金額</th><th>付款</th><th>訂單狀態</th><th>物流</th><th>物流單號</th><th></th></tr></thead><tbody id="orders"></tbody></table></div></section></main>
 <script>
-const KEY='grabacup_admin_token';let token=sessionStorage.getItem(KEY)||'';let data={};const $=s=>document.querySelector(s),money=n=>'NT$'+Number(n||0).toLocaleString('zh-TW');
-async function api(path,opt={}){const h={'Content-Type':'application/json',...(opt.headers||{})};if(token)h.Authorization='Bearer '+token;const r=await fetch('/api'+path,{...opt,headers:h});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||'操作失敗');return d}
-$('#login').onsubmit=async e=>{e.preventDefault();try{const d=await api('/admin/login',{method:'POST',body:JSON.stringify(Object.fromEntries(new FormData(e.target)))});token=d.token;sessionStorage.setItem(KEY,token);load()}catch(x){$('#status').textContent=x.message}};
-async function load(){if(!token)return;try{data=await api('/admin/dashboard');$('#loginBox').classList.add('hidden');$('#app').classList.remove('hidden');render()}catch(e){sessionStorage.removeItem(KEY);token=''}}
-function render(){const tags=data.tags||[];$('#customers').innerHTML=(data.customers||[]).map(c=>'<tr><td><b>'+esc(c.name||'未命名')+'</b><br>'+esc(c.email)+'<br>'+esc(c.phone||'')+'<br>'+esc(c.company||'')+'</td><td>'+c.order_count+' 筆<br>'+money(c.lifetime_value)+'</td><td class="tags">'+tags.map(t=>'<label><input type="checkbox" data-ct="'+c.id+'" value="'+t.id+'" '+((c.tags||[]).some(x=>x.id===t.id)?'checked':'')+'>'+esc(t.name)+'</label>').join('')+'</td><td><textarea data-note="'+c.id+'" rows="3">'+esc(c.notes||'')+'</textarea></td><td><button data-save-c="'+c.id+'">儲存</button></td></tr>').join('');
-$('#orders').innerHTML=(data.orders||[]).map(o=>'<tr><td><b>'+esc(o.order_no)+'</b><br>'+esc(o.customer_name||o.customer_email||'')+'<br>'+esc(o.created_at||'')+'</td><td>'+money(o.total)+'</td><td><select data-pay="'+o.id+'">'+opts(['pending','paid','failed','refunded'],o.payment_status)+'</select></td><td><select data-full="'+o.id+'">'+opts(['pending','processing','completed','cancelled'],o.fulfillment_status)+'</select></td><td><select data-ship="'+o.id+'">'+opts(['pending','preparing','shipped','delivered','returned'],o.shipping_status||'pending')+'</select><br><input data-carrier="'+o.id+'" value="'+esc(o.carrier||'')+'" placeholder="物流商"></td><td><input data-track="'+o.id+'" value="'+esc(o.tracking_no||'')+'" placeholder="物流單號"></td><td><button data-save-o="'+o.id+'">更新</button></td></tr>').join('')}
-function opts(a,v){return a.map(x=>'<option '+(x===v?'selected':'')+'>'+x+'</option>').join('')}function esc(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
-document.addEventListener('click',async e=>{const cid=e.target.dataset.saveC,oid=e.target.dataset.saveO;try{if(cid){const tagIds=[...document.querySelectorAll('[data-ct="'+cid+'"]:checked')].map(x=>Number(x.value));await api('/admin/customer',{method:'PUT',body:JSON.stringify({id:Number(cid),notes:document.querySelector('[data-note="'+cid+'"]').value,tagIds})});alert('客戶資料已更新')}if(oid){await api('/admin/order',{method:'PUT',body:JSON.stringify({id:Number(oid),paymentStatus:document.querySelector('[data-pay="'+oid+'"]').value,fulfillmentStatus:document.querySelector('[data-full="'+oid+'"]').value,shippingStatus:document.querySelector('[data-ship="'+oid+'"]').value,carrier:document.querySelector('[data-carrier="'+oid+'"]').value,trackingNo:document.querySelector('[data-track="'+oid+'"]').value})});alert('訂單已更新')}}catch(x){alert(x.message)}});load();
+const KEY='grabacup_admin_token';
+const IDLE_MS=60*1000;
+const REFRESH_AFTER_MS=15*1000;
+let token=sessionStorage.getItem(KEY)||'',data={},idleTimer=0,countdownTimer=0,lastActivity=Date.now(),lastRefresh=0,refreshInFlight=false,sessionVersion=0;
+const $=s=>document.querySelector(s),money=n=>'NT$'+Number(n||0).toLocaleString('zh-TW');
+
+async function api(path,opt={}){
+  const h={'Content-Type':'application/json',...(opt.headers||{})};
+  if(token)h.Authorization='Bearer '+token;
+  const r=await fetch('/api'+path,{...opt,headers:h});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok){const error=Error(d.error||'操作失敗');error.status=r.status;throw error}
+  return d;
+}
+function resetPasswordField(){
+  const input=$('#login input[name="password"]');if(!input)return;
+  input.value='';input.type='password';
+  const toggle=input.closest('.password-wrap')?.querySelector('.password-toggle');
+  if(toggle){toggle.textContent='顯示';toggle.setAttribute('aria-label','顯示密碼');toggle.setAttribute('aria-pressed','false')}
+}
+function updateCountdown(){
+  if(!token)return;
+  const seconds=Math.max(0,Math.ceil((IDLE_MS-(Date.now()-lastActivity))/1000));
+  const label=$('#idleCountdown');if(label)label.textContent='閒置登出倒數：'+seconds+' 秒';
+  if(seconds<=0)logout('已超過 60 秒沒有操作，系統已自動登出。');
+}
+function armIdleTimer(){
+  clearTimeout(idleTimer);clearInterval(countdownTimer);
+  const remaining=Math.max(0,IDLE_MS-(Date.now()-lastActivity));
+  idleTimer=setTimeout(()=>logout('已超過 60 秒沒有操作，系統已自動登出。'),remaining+50);
+  countdownTimer=setInterval(updateCountdown,1000);updateCountdown();
+}
+function startSession(){
+  lastActivity=Date.now();lastRefresh=Date.now();armIdleTimer();
+  $('#loginBox').classList.add('hidden');$('#app').classList.remove('hidden');$('#status').textContent='';
+}
+function logout(message='您已安全登出 CRM。'){
+  sessionVersion++;token='';data={};sessionStorage.removeItem(KEY);
+  clearTimeout(idleTimer);clearInterval(countdownTimer);
+  $('#app').classList.add('hidden');$('#loginBox').classList.remove('hidden');
+  resetPasswordField();$('#status').textContent=message;$('#login input[name="password"]')?.focus();
+}
+async function refreshSession(force=false){
+  if(!token||refreshInFlight||(!force&&Date.now()-lastRefresh<REFRESH_AFTER_MS))return;
+  const version=sessionVersion;refreshInFlight=true;
+  try{
+    const d=await api('/admin/refresh',{method:'POST'});
+    if(token&&version===sessionVersion){token=d.token;sessionStorage.setItem(KEY,token);lastRefresh=Date.now()}
+  }catch(e){if(version===sessionVersion)logout('登入已失效，請重新登入。')}
+  finally{refreshInFlight=false}
+}
+function markActivity(){
+  if(!token||$('#app').classList.contains('hidden'))return;
+  lastActivity=Date.now();armIdleTimer();refreshSession();
+}
+['pointerdown','keydown','scroll','touchstart'].forEach(name=>window.addEventListener(name,markActivity,{passive:true}));
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible'&&token){
+    if(Date.now()-lastActivity>=IDLE_MS)logout('已超過 60 秒沒有操作，系統已自動登出。');else updateCountdown();
+  }
+});
+$('#login').onsubmit=async e=>{
+  e.preventDefault();const button=$('#loginBtn');button.disabled=true;button.textContent='登入中…';$('#status').textContent='';
+  try{
+    const d=await api('/admin/login',{method:'POST',body:JSON.stringify(Object.fromEntries(new FormData(e.target)))});
+    sessionVersion++;token=d.token;sessionStorage.setItem(KEY,token);resetPasswordField();await load(false);
+  }catch(x){$('#status').textContent=x.message}
+  finally{button.disabled=false;button.textContent='登入 CRM'}
+};
+$('#logoutBtn').addEventListener('click',()=>logout());
+async function load(refreshExisting=true){
+  if(!token)return;
+  try{data=await api('/admin/dashboard');if(refreshExisting)await refreshSession(true);startSession();render()}
+  catch(e){logout(e.status===401?'登入已失效，請重新登入。':e.message)}
+}
+function render(){
+  const tags=data.tags||[];
+  $('#customers').innerHTML=(data.customers||[]).map(c=>'<tr><td><b>'+esc(c.name||'未命名')+'</b><br>'+esc(c.email)+'<br>'+esc(c.phone||'')+'<br>'+esc(c.company||'')+'</td><td>'+c.order_count+' 筆<br>'+money(c.lifetime_value)+'</td><td class="tags">'+tags.map(t=>'<label><input type="checkbox" data-ct="'+c.id+'" value="'+t.id+'" '+((c.tags||[]).some(x=>x.id===t.id)?'checked':'')+'>'+esc(t.name)+'</label>').join('')+'</td><td><textarea data-note="'+c.id+'" rows="3">'+esc(c.notes||'')+'</textarea></td><td><button data-save-c="'+c.id+'">儲存</button></td></tr>').join('');
+  $('#orders').innerHTML=(data.orders||[]).map(o=>'<tr><td><b>'+esc(o.order_no)+'</b><br>'+esc(o.customer_name||o.customer_email||'')+'<br>'+esc(o.created_at||'')+'</td><td>'+money(o.total)+'</td><td><select data-pay="'+o.id+'">'+opts(['pending','paid','failed','refunded'],o.payment_status)+'</select></td><td><select data-full="'+o.id+'">'+opts(['pending','processing','completed','cancelled'],o.fulfillment_status)+'</select></td><td><select data-ship="'+o.id+'">'+opts(['pending','preparing','shipped','delivered','returned'],o.shipping_status||'pending')+'</select><br><input data-carrier="'+o.id+'" value="'+esc(o.carrier||'')+'" placeholder="物流商"></td><td><input data-track="'+o.id+'" value="'+esc(o.tracking_no||'')+'" placeholder="物流單號"></td><td><button data-save-o="'+o.id+'">更新</button></td></tr>').join('');
+}
+function opts(a,v){return a.map(x=>'<option '+(x===v?'selected':'')+'>'+x+'</option>').join('')}
+function esc(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+document.addEventListener('click',async e=>{
+  const cid=e.target.dataset.saveC,oid=e.target.dataset.saveO;
+  try{
+    if(cid){const tagIds=[...document.querySelectorAll('[data-ct="'+cid+'"]:checked')].map(x=>Number(x.value));await api('/admin/customer',{method:'PUT',body:JSON.stringify({id:Number(cid),notes:document.querySelector('[data-note="'+cid+'"]').value,tagIds})});alert('客戶資料已更新')}
+    if(oid){await api('/admin/order',{method:'PUT',body:JSON.stringify({id:Number(oid),paymentStatus:document.querySelector('[data-pay="'+oid+'"]').value,fulfillmentStatus:document.querySelector('[data-full="'+oid+'"]').value,shippingStatus:document.querySelector('[data-ship="'+oid+'"]').value,carrier:document.querySelector('[data-carrier="'+oid+'"]').value,trackingNo:document.querySelector('[data-track="'+oid+'"]').value})});alert('訂單已更新')}
+  }catch(x){if(x.status===401)logout('登入已失效，請重新登入。');else alert(x.message)}
+});
+load();
 </script><script src="script.js"></script></body></html>

@@ -247,10 +247,10 @@ async function passwordHash(password,saltB64=''){
   const bits=await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt,iterations:60000},key,256);
   return {salt:bytesToBase64Url(salt),hash:bytesToBase64Url(new Uint8Array(bits))};
 }
-async function signAuth(payload,env){
+async function signAuth(payload,env,ttlMs=24*60*60*1000){
   const secret=authSecret(env);
   if(!secret) throw new Error('會員驗證金鑰尚未設定');
-  const body=textToBase64Url(JSON.stringify({...payload,exp:Date.now()+24*60*60*1000}));
+  const body=textToBase64Url(JSON.stringify({...payload,exp:Date.now()+ttlMs}));
   return `${body}.${await hmac(body,secret)}`;
 }
 async function verifyAuth(request,env,role=''){
@@ -461,7 +461,12 @@ export async function onRequest(context){
     const b=await bodyJson(request);
     if(!env.ADMIN_SECRET)return json({error:'ADMIN_SECRET 尚未設定'},503);
     if(String(b.password||'')!==String(env.ADMIN_SECRET))return json({error:'管理密碼錯誤'},401);
-    return json({ok:true,token:await signAuth({role:'admin'},env)});
+    return json({ok:true,token:await signAuth({role:'admin'},env,60*1000),expiresIn:60});
+  }
+
+  if(path==='/admin/refresh'&&method==='POST'){
+    if(!await verifyAuth(request,env,'admin'))return json({error:'管理登入已失效'},401);
+    return json({ok:true,token:await signAuth({role:'admin'},env,60*1000),expiresIn:60});
   }
 
   if(path==='/admin/dashboard'&&method==='GET'){

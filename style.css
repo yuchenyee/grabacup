@@ -467,3 +467,6 @@
 .answer-card h3{margin:0 0 8px;color:var(--brown);font-size:17px;line-height:1.4}
 .answer-card p{margin:0;color:var(--muted);font-size:14px;line-height:1.75}
 @media(max-width:700px){.answer-grid{grid-template-columns:1fr}}
+
+/* Password visibility toggle */
+.password-wrap{position:relative;display:block;width:100%}.password-wrap input{width:100%;padding-right:68px!important}.password-toggle{position:absolute;right:9px;top:50%;transform:translateY(-50%);border:0;background:transparent;color:var(--brown);font-size:13px;font-weight:900;line-height:1;padding:8px;cursor:pointer;border-radius:8px}.password-toggle:hover{background:var(--cream)}.password-toggle:focus-visible{outline:2px solid var(--gold);outline-offset:1px}

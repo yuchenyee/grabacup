@@ -5,8 +5,7 @@ pages_build_output_dir = "."
 [vars]
 ECPAY_MODE = "stage"
 
-
 [[d1_databases]]
 binding = "DB"
 database_name = "grabacup-db"
-database_id = "760d7eb0-5f58-4880-9749-14f54c8df99a"
+database_id = "760d7eb0-f5f8-4880-9749-14f54c8df99a"

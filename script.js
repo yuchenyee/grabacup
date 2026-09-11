@@ -20,6 +20,8 @@ document.addEventListener('DOMContentLoaded',()=>{
     s.style.color='#572314';
     try{
       const payload=Object.fromEntries(new FormData(form).entries());
+      payload._replyto=payload.email||'';
+      if(payload['聯絡類型']) payload._subject=`GRAB A CUP｜${payload['聯絡類型']}｜${payload['主旨']||'官網聯絡表單'}`;
       const res=await fetch(endpoint,{
         method:'POST',
         headers:{'Content-Type':'application/json','Accept':'application/json'},

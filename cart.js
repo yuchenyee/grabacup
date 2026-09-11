@@ -23,6 +23,37 @@
     const shipping=freeShipping?0:(C.shippingFee||0);
     return {subtotal:st,qty,amountDiscount,quantityDiscount,quantityTier:qTier,discount,discountLabel,giftQty,freeShipping,shipping,total:Math.max(0,st-discount+shipping)};
   };
+  // Checkout helpers: calculate shipping/payment fees and preserve form data
+  const shippingFeeFor = (method, productSubtotal) => {
+    const option = C.shippingOptions?.[method];
+    if (!option) return 0;
+    const fee = Number(option.fee) || 0;
+    const threshold = option.freeThreshold;
+    if (threshold !== null && threshold !== undefined && Number(productSubtotal) >= Number(threshold)) return 0;
+    return fee;
+  };
+
+  const paymentFeeFor = (method, productSubtotal) => {
+    const option = C.paymentOptions?.[method];
+    if (!option) return 0;
+    if (option.feeType === 'rate') return Math.round((Number(productSubtotal) || 0) * (Number(option.rate) || 0));
+    return Number(option.fee) || 0;
+  };
+
+  const checkoutFormState = () => {
+    const form = document.getElementById('checkoutForm');
+    if (!form) return {};
+    const fd = new FormData(form);
+    return {
+      name: fd.get('name') || '',
+      phone: fd.get('phone') || '',
+      email: fd.get('email') || '',
+      note: fd.get('note') || '',
+      shippingMethod: fd.get('shippingMethod') || '',
+      paymentMethod: fd.get('paymentMethod') || ''
+    };
+  };
+
   const remaining = (value, threshold) => Math.max(0, threshold-value);
   const add = (id,qty=1) => { if(!C.products[id]) return; const cart=getCart(); cart[id]=(cart[id]||0)+Math.max(1,Number(qty)||1); saveCart(cart); toast(`${C.products[id].name} 已加入購物車`); openPromo(); };
   const setQty = (id,qty) => { const cart=getCart(); if(qty<=0) delete cart[id]; else cart[id]=Math.min(99,qty); saveCart(cart); };

@@ -360,6 +360,8 @@ async function normalCheckout(request,env){
     ClientBackURL:`${base}/payment-result.html`
   };
   fields.CheckMacValue=await checkMacValue(fields,{...env,ECPAY_HASH_KEY:cfg.hashKey,ECPAY_HASH_IV:cfg.hashIV});
+  try{ await persistOrder(env,{no,customer:body.customer||{},orderType:'retail',items:normalized,subtotal,discount:promo.discount,shipping,paymentFee,total,shippingMethod,paymentMethod,note:body.customer?.note||''}); }
+  catch(e){ console.error('persist retail order',e); }
   return json({orderNo:no,action:cfg.action,fields});
 }
 
@@ -391,6 +393,8 @@ async function enterpriseCheckout(request,env){
     ClientBackURL:`${base}/payment-result.html`
   };
   fields.CheckMacValue=await checkMacValue(fields,{...env,ECPAY_HASH_KEY:cfg.hashKey,ECPAY_HASH_IV:cfg.hashIV});
+  try{ await persistOrder(env,{no,customer:body.customer||{},orderType:'enterprise',items:normalized,subtotal,discount:0,shipping,paymentFee:0,total,shippingMethod,paymentMethod:'ecpay',note:body.customer?.note||''}); }
+  catch(e){ console.error('persist enterprise order',e); }
   return json({orderNo:no,action:cfg.action,fields});
 }
 
@@ -400,6 +404,102 @@ export async function onRequest(context){
   const method=request.method.toUpperCase();
 
   if(path==='/health'&&method==='GET')return json({ok:true,platform:'cloudflare-pages-functions',mode:String(env.ECPAY_MODE||'stage')});
+
+  if(path==='/member/register'&&method==='POST'){
+    try{
+      await ensureSchema(env);
+      const b=await bodyJson(request), email=normalizeEmail(b.email), password=String(b.password||'');
+      if(!email||!email.includes('@')||password.length<8)return json({error:'請輸入有效 Email，密碼至少 8 碼'},400);
+      const old=await env.DB.prepare('SELECT id,password_hash FROM customers WHERE email=?').bind(email).first();
+      if(old?.password_hash)return json({error:'此 Email 已註冊會員'},409);
+      const ph=await passwordHash(password);
+      let customer=old;
+      if(old){
+        await env.DB.prepare("UPDATE customers SET name=?,phone=?,password_hash=?,password_salt=?,member_status='active',updated_at=? WHERE id=?")
+          .bind(safeText(b.name,80),safeText(b.phone,40),ph.hash,ph.salt,nowIso(),old.id).run();
+        customer=await env.DB.prepare('SELECT * FROM customers WHERE id=?').bind(old.id).first();
+      }else{
+        const ins=await env.DB.prepare("INSERT INTO customers(email,name,phone,password_hash,password_salt,member_status,created_at,updated_at) VALUES(?,?,?,?,?,'active',?,?)")
+          .bind(email,safeText(b.name,80),safeText(b.phone,40),ph.hash,ph.salt,nowIso(),nowIso()).run();
+        customer=await env.DB.prepare('SELECT * FROM customers WHERE id=?').bind(ins.meta.last_row_id).first();
+      }
+      await setCustomerTag(env,customer.id,'新客');
+      return json({ok:true,token:await signAuth({id:customer.id,email,role:'member'},env),member:{id:customer.id,email,name:customer.name}});
+    }catch(e){return json({error:e.message||'註冊失敗'},500);}
+  }
+
+  if(path==='/member/login'&&method==='POST'){
+    try{
+      await ensureSchema(env);
+      const b=await bodyJson(request), email=normalizeEmail(b.email), password=String(b.password||'');
+      const customer=await env.DB.prepare('SELECT * FROM customers WHERE email=?').bind(email).first();
+      if(!customer?.password_hash)return json({error:'Email 或密碼錯誤'},401);
+      const ph=await passwordHash(password,customer.password_salt);
+      if(ph.hash!==customer.password_hash)return json({error:'Email 或密碼錯誤'},401);
+      return json({ok:true,token:await signAuth({id:customer.id,email,role:'member'},env),member:{id:customer.id,email,name:customer.name}});
+    }catch(e){return json({error:e.message||'登入失敗'},500);}
+  }
+
+  if(path==='/member/me'&&method==='GET'){
+    await ensureSchema(env);
+    const a=await verifyAuth(request,env,'member'); if(!a)return json({error:'請重新登入'},401);
+    const member=await env.DB.prepare('SELECT id,email,name,phone,company,tax_id,member_status,created_at FROM customers WHERE id=?').bind(a.id).first();
+    const tags=(await env.DB.prepare('SELECT t.name,t.color FROM tags t JOIN customer_tags ct ON ct.tag_id=t.id WHERE ct.customer_id=?').bind(a.id).all()).results||[];
+    return json({ok:true,member:{...member,tags},orders:await ordersForCustomer(env,a.id,a.email)});
+  }
+
+  if(path==='/member/profile'&&method==='PUT'){
+    await ensureSchema(env);
+    const a=await verifyAuth(request,env,'member'); if(!a)return json({error:'請重新登入'},401);
+    const b=await bodyJson(request);
+    await env.DB.prepare('UPDATE customers SET name=?,phone=?,company=?,tax_id=?,updated_at=? WHERE id=?')
+      .bind(safeText(b.name,80),safeText(b.phone,40),safeText(b.company,120),safeText(b.taxId,20),nowIso(),a.id).run();
+    return json({ok:true});
+  }
+
+  if(path==='/admin/login'&&method==='POST'){
+    const b=await bodyJson(request);
+    if(!env.ADMIN_SECRET)return json({error:'ADMIN_SECRET 尚未設定'},503);
+    if(String(b.password||'')!==String(env.ADMIN_SECRET))return json({error:'管理密碼錯誤'},401);
+    return json({ok:true,token:await signAuth({role:'admin'},env)});
+  }
+
+  if(path==='/admin/dashboard'&&method==='GET'){
+    await ensureSchema(env);
+    if(!await verifyAuth(request,env,'admin'))return json({error:'管理登入已失效'},401);
+    const customers=(await env.DB.prepare(`SELECT c.id,c.email,c.name,c.phone,c.company,c.member_status,c.notes,c.created_at,
+      COUNT(DISTINCT o.id) order_count,COALESCE(SUM(o.total),0) lifetime_value
+      FROM customers c LEFT JOIN orders o ON o.customer_id=c.id GROUP BY c.id ORDER BY c.id DESC LIMIT 200`).all()).results||[];
+    for(const x of customers)x.tags=(await env.DB.prepare('SELECT t.id,t.name,t.color FROM tags t JOIN customer_tags ct ON ct.tag_id=t.id WHERE ct.customer_id=?').bind(x.id).all()).results||[];
+    const orders=(await env.DB.prepare(`SELECT o.*,c.name customer_name,s.carrier,s.tracking_no,s.status shipping_status
+      FROM orders o LEFT JOIN customers c ON c.id=o.customer_id LEFT JOIN shipments s ON s.order_id=o.id ORDER BY o.id DESC LIMIT 200`).all()).results||[];
+    const tags=(await env.DB.prepare('SELECT * FROM tags ORDER BY id').all()).results||[];
+    return json({ok:true,customers,orders,tags});
+  }
+
+  if(path==='/admin/customer'&&method==='PUT'){
+    await ensureSchema(env);
+    if(!await verifyAuth(request,env,'admin'))return json({error:'管理登入已失效'},401);
+    const b=await bodyJson(request), id=Number(b.id);
+    await env.DB.prepare('UPDATE customers SET notes=?,updated_at=? WHERE id=?').bind(safeText(b.notes,1000),nowIso(),id).run();
+    if(Array.isArray(b.tagIds)){
+      await env.DB.prepare('DELETE FROM customer_tags WHERE customer_id=?').bind(id).run();
+      for(const tagId of b.tagIds)await env.DB.prepare('INSERT OR IGNORE INTO customer_tags(customer_id,tag_id) VALUES(?,?)').bind(id,Number(tagId)).run();
+    }
+    return json({ok:true});
+  }
+
+  if(path==='/admin/order'&&method==='PUT'){
+    await ensureSchema(env);
+    if(!await verifyAuth(request,env,'admin'))return json({error:'管理登入已失效'},401);
+    const b=await bodyJson(request), id=Number(b.id);
+    await env.DB.prepare('UPDATE orders SET payment_status=?,fulfillment_status=?,updated_at=? WHERE id=?')
+      .bind(safeText(b.paymentStatus,30),safeText(b.fulfillmentStatus,30),nowIso(),id).run();
+    await env.DB.prepare(`INSERT INTO shipments(order_id,carrier,tracking_no,status,shipped_at,delivered_at,updated_at)
+      VALUES(?,?,?,?,?,?,?) ON CONFLICT(order_id) DO UPDATE SET carrier=excluded.carrier,tracking_no=excluded.tracking_no,status=excluded.status,shipped_at=excluded.shipped_at,delivered_at=excluded.delivered_at,updated_at=excluded.updated_at`)
+      .bind(id,safeText(b.carrier,60),safeText(b.trackingNo,100),safeText(b.shippingStatus,30),safeText(b.shippedAt,40),safeText(b.deliveredAt,40),nowIso()).run();
+    return json({ok:true});
+  }
 
   if(path==='/enterprise/login'&&method==='POST'){
     const body=await bodyJson(request);
@@ -427,6 +527,20 @@ export async function onRequest(context){
     const form=Object.fromEntries(await request.formData());
     const received=String(form.CheckMacValue||'');
     const expected=await checkMacValue(form,{...env,ECPAY_HASH_KEY:cfg.hashKey,ECPAY_HASH_IV:cfg.hashIV});
+    if(received===expected && env.DB){
+      try{
+        await ensureSchema(env);
+        const no=String(form.MerchantTradeNo||'');
+        const paid=String(form.RtnCode||'')==='1';
+        const order=await env.DB.prepare('SELECT id FROM orders WHERE order_no=?').bind(no).first();
+        if(order){
+          await env.DB.prepare('UPDATE orders SET payment_status=?,ecpay_rtn_code=?,ecpay_trade_no=?,updated_at=? WHERE id=?')
+            .bind(paid?'paid':'failed',safeText(form.RtnCode,20),safeText(form.TradeNo,80),nowIso(),order.id).run();
+          await env.DB.prepare('INSERT INTO order_events(order_id,event_type,message,created_at) VALUES(?,?,?,?)')
+            .bind(order.id,'payment',paid?'綠界付款成功':'綠界付款未成功',nowIso()).run();
+        }
+      }catch(e){console.error('ecpay d1 update',e);}
+    }
     return new Response(received===expected?'1|OK':'0|CheckMacValueError',{
       status:200,headers:{'content-type':'text/plain; charset=utf-8'}
     });

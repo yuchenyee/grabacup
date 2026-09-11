@@ -149,6 +149,183 @@ async function bodyJson(request){
   try{return await request.json()}catch{return {}}
 }
 
+// ===== CRM / Member system =====
+const nowIso=()=>new Date().toISOString();
+const normalizeEmail=v=>String(v||'').trim().toLowerCase();
+const authSecret=env=>String(env.MEMBER_SECRET||env.ENTERPRISE_SECRET||'');
+
+async function ensureSchema(env){
+  if(!env.DB) throw new Error('D1 binding DB 尚未啟用');
+  const sqls=[
+    `CREATE TABLE IF NOT EXISTS customers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      email TEXT UNIQUE NOT NULL,
+      name TEXT DEFAULT '',
+      phone TEXT DEFAULT '',
+      company TEXT DEFAULT '',
+      tax_id TEXT DEFAULT '',
+      password_hash TEXT DEFAULT '',
+      password_salt TEXT DEFAULT '',
+      member_status TEXT DEFAULT 'guest',
+      notes TEXT DEFAULT '',
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS orders (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_no TEXT UNIQUE NOT NULL,
+      customer_id INTEGER,
+      customer_email TEXT DEFAULT '',
+      order_type TEXT DEFAULT 'retail',
+      subtotal INTEGER DEFAULT 0,
+      discount INTEGER DEFAULT 0,
+      shipping_fee INTEGER DEFAULT 0,
+      payment_fee INTEGER DEFAULT 0,
+      total INTEGER DEFAULT 0,
+      payment_status TEXT DEFAULT 'pending',
+      fulfillment_status TEXT DEFAULT 'pending',
+      shipping_method TEXT DEFAULT '',
+      payment_method TEXT DEFAULT '',
+      note TEXT DEFAULT '',
+      ecpay_rtn_code TEXT DEFAULT '',
+      ecpay_trade_no TEXT DEFAULT '',
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(customer_id) REFERENCES customers(id)
+    )`,
+    `CREATE TABLE IF NOT EXISTS order_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_id INTEGER NOT NULL,
+      product_id TEXT NOT NULL,
+      product_name TEXT NOT NULL,
+      unit_price INTEGER NOT NULL,
+      quantity INTEGER NOT NULL,
+      line_total INTEGER NOT NULL,
+      FOREIGN KEY(order_id) REFERENCES orders(id) ON DELETE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS shipments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_id INTEGER UNIQUE NOT NULL,
+      carrier TEXT DEFAULT '',
+      tracking_no TEXT DEFAULT '',
+      status TEXT DEFAULT 'pending',
+      shipped_at TEXT DEFAULT '',
+      delivered_at TEXT DEFAULT '',
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(order_id) REFERENCES orders(id) ON DELETE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS tags (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT UNIQUE NOT NULL,
+      color TEXT DEFAULT '#572314'
+    )`,
+    `CREATE TABLE IF NOT EXISTS customer_tags (
+      customer_id INTEGER NOT NULL,
+      tag_id INTEGER NOT NULL,
+      PRIMARY KEY(customer_id,tag_id),
+      FOREIGN KEY(customer_id) REFERENCES customers(id) ON DELETE CASCADE,
+      FOREIGN KEY(tag_id) REFERENCES tags(id) ON DELETE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS order_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_id INTEGER NOT NULL,
+      event_type TEXT NOT NULL,
+      message TEXT DEFAULT '',
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(order_id) REFERENCES orders(id) ON DELETE CASCADE
+    )`
+  ];
+  await env.DB.batch(sqls.map(sql=>env.DB.prepare(sql)));
+  for(const [name,color] of [['新客','#B88632'],['回購客','#2E7D32'],['VIP','#C62828'],['企業客戶','#6A1B9A'],['大量採購','#1565C0']]){
+    await env.DB.prepare('INSERT OR IGNORE INTO tags(name,color) VALUES(?,?)').bind(name,color).run();
+  }
+}
+
+async function passwordHash(password,saltB64=''){
+  const salt=saltB64?base64UrlToBytes(saltB64):crypto.getRandomValues(new Uint8Array(16));
+  const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(String(password)),{name:'PBKDF2'},false,['deriveBits']);
+  const bits=await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt,iterations:60000},key,256);
+  return {salt:bytesToBase64Url(salt),hash:bytesToBase64Url(new Uint8Array(bits))};
+}
+async function signAuth(payload,env){
+  const secret=authSecret(env);
+  if(!secret) throw new Error('會員驗證金鑰尚未設定');
+  const body=textToBase64Url(JSON.stringify({...payload,exp:Date.now()+24*60*60*1000}));
+  return `${body}.${await hmac(body,secret)}`;
+}
+async function verifyAuth(request,env,role=''){
+  try{
+    const secret=authSecret(env); if(!secret)return null;
+    const token=String(request.headers.get('authorization')||'').replace(/^Bearer\s+/i,'');
+    const [body,sig]=token.split('.'); if(!body||!sig)return null;
+    if(sig!==await hmac(body,secret))return null;
+    const data=JSON.parse(base64UrlToText(body));
+    if(!data.exp||Date.now()>data.exp)return null;
+    if(role&&data.role!==role)return null;
+    return data;
+  }catch{return null;}
+}
+async function upsertCustomer(env,customer={}){
+  await ensureSchema(env);
+  const email=normalizeEmail(customer.email);
+  if(!email)return null;
+  const existing=await env.DB.prepare('SELECT * FROM customers WHERE email=?').bind(email).first();
+  if(existing){
+    await env.DB.prepare(`UPDATE customers SET
+      name=CASE WHEN ?<>'' THEN ? ELSE name END,
+      phone=CASE WHEN ?<>'' THEN ? ELSE phone END,
+      company=CASE WHEN ?<>'' THEN ? ELSE company END,
+      tax_id=CASE WHEN ?<>'' THEN ? ELSE tax_id END,
+      updated_at=? WHERE id=?`)
+      .bind(safeText(customer.name,80),safeText(customer.name,80),safeText(customer.phone,40),safeText(customer.phone,40),
+        safeText(customer.company,120),safeText(customer.company,120),safeText(customer.taxId,20),safeText(customer.taxId,20),nowIso(),existing.id).run();
+    return {...existing,name:customer.name||existing.name,phone:customer.phone||existing.phone,company:customer.company||existing.company,tax_id:customer.taxId||existing.tax_id};
+  }
+  const ins=await env.DB.prepare('INSERT INTO customers(email,name,phone,company,tax_id,member_status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?)')
+    .bind(email,safeText(customer.name,80),safeText(customer.phone,40),safeText(customer.company,120),safeText(customer.taxId,20),'guest',nowIso(),nowIso()).run();
+  return await env.DB.prepare('SELECT * FROM customers WHERE id=?').bind(ins.meta.last_row_id).first();
+}
+async function setCustomerTag(env,customerId,tagName){
+  const tag=await env.DB.prepare('SELECT id FROM tags WHERE name=?').bind(tagName).first();
+  if(tag) await env.DB.prepare('INSERT OR IGNORE INTO customer_tags(customer_id,tag_id) VALUES(?,?)').bind(customerId,tag.id).run();
+}
+async function refreshAutoTags(env,customerId,orderType,total){
+  const stats=await env.DB.prepare('SELECT COUNT(*) count, COALESCE(SUM(total),0) spend FROM orders WHERE customer_id=?').bind(customerId).first();
+  if(Number(stats?.count||0)<=1) await setCustomerTag(env,customerId,'新客');
+  if(Number(stats?.count||0)>=2) await setCustomerTag(env,customerId,'回購客');
+  if(Number(stats?.spend||0)>=5000) await setCustomerTag(env,customerId,'VIP');
+  if(orderType==='enterprise') await setCustomerTag(env,customerId,'企業客戶');
+  if(Number(total||0)>=3000) await setCustomerTag(env,customerId,'大量採購');
+}
+async function persistOrder(env,{no,customer,orderType='retail',items,subtotal,discount=0,shipping=0,paymentFee=0,total,shippingMethod='',paymentMethod='',note=''}) {
+  const cst=await upsertCustomer(env,customer);
+  const ins=await env.DB.prepare(`INSERT OR IGNORE INTO orders
+    (order_no,customer_id,customer_email,order_type,subtotal,discount,shipping_fee,payment_fee,total,payment_status,fulfillment_status,shipping_method,payment_method,note,created_at,updated_at)
+    VALUES(?,?,?,?,?,?,?,?,?,'pending','pending',?,?,?,?,?)`)
+    .bind(no,cst?.id||null,normalizeEmail(customer?.email),orderType,subtotal,discount,shipping,paymentFee,total,shippingMethod,paymentMethod,safeText(note,500),nowIso(),nowIso()).run();
+  let order=await env.DB.prepare('SELECT * FROM orders WHERE order_no=?').bind(no).first();
+  if(ins.meta.changes && order){
+    for(const x of items){
+      const p=PRODUCTS[x.id]; const unit=orderType==='enterprise'?enterprisePrice(p.price):p.price;
+      await env.DB.prepare('INSERT INTO order_items(order_id,product_id,product_name,unit_price,quantity,line_total) VALUES(?,?,?,?,?,?)')
+        .bind(order.id,x.id,p.name,unit,x.quantity,unit*x.quantity).run();
+    }
+    await env.DB.prepare('INSERT OR IGNORE INTO shipments(order_id,status,updated_at) VALUES(?,?,?)').bind(order.id,'pending',nowIso()).run();
+    await env.DB.prepare('INSERT INTO order_events(order_id,event_type,message,created_at) VALUES(?,?,?,?)').bind(order.id,'created','訂單建立',nowIso()).run();
+    if(cst?.id) await refreshAutoTags(env,cst.id,orderType,total);
+  }
+  return order;
+}
+async function ordersForCustomer(env,customerId,email){
+  const {results}=await env.DB.prepare('SELECT * FROM orders WHERE customer_id=? OR customer_email=? ORDER BY id DESC').bind(customerId,email).all();
+  const out=[];
+  for(const o of results||[]){
+    const items=(await env.DB.prepare('SELECT product_id,product_name,unit_price,quantity,line_total FROM order_items WHERE order_id=?').bind(o.id).all()).results||[];
+    const shipment=await env.DB.prepare('SELECT carrier,tracking_no,status,shipped_at,delivered_at FROM shipments WHERE order_id=?').bind(o.id).first();
+    out.push({...o,items,shipment:shipment||null});
+  }
+  return out;
+}
 async function normalCheckout(request,env){
   const cfg=ecpayConfig(env);
   if(!cfg.merchantId||!cfg.hashKey||!cfg.hashIV)return json({error:'綠界正式環境金鑰尚未設定'},500);

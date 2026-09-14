@@ -4,6 +4,7 @@
   const CART_KEY = 'grabacup_cart_v1';
   const productByPage = Object.entries(C.products).reduce((m,[id,p]) => (m[p.page]=id,m),{});
   const money = n => new Intl.NumberFormat('zh-TW',{style:'currency',currency:C.currency,maximumFractionDigits:0}).format(n||0);
+  const escAttr = value => String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   const getCart = () => { try { return JSON.parse(localStorage.getItem(CART_KEY)) || {}; } catch { return {}; } };
   const saveCart = cart => { localStorage.setItem(CART_KEY, JSON.stringify(cart)); renderCart(); };
   const totalQty = cart => Object.values(cart).reduce((s,q)=>s+q,0);
@@ -48,6 +49,8 @@
       name: fd.get('name') || '',
       phone: fd.get('phone') || '',
       email: fd.get('email') || '',
+      postalCode: fd.get('postalCode') || '',
+      address: fd.get('address') || '',
       note: fd.get('note') || '',
       shippingMethod: fd.get('shippingMethod') || '',
       paymentMethod: fd.get('paymentMethod') || ''
@@ -115,7 +118,8 @@
     document.querySelectorAll('.catalog-card').forEach(card=>{const name=card.querySelector('h3')?.textContent.trim(); const entry=Object.entries(C.products).find(([,p])=>p.name===name); if(!entry)return; const [id,p]=entry; if(card.querySelector('.catalog-buy'))return; const copy=card.querySelector('.catalog-copy'); const row=document.createElement('div'); row.className='catalog-commerce'; row.innerHTML=`<strong>售價 ${money(p.price)}</strong><button type="button" class="btn catalog-buy" data-add-product="${id}">加入購物車</button>`; copy.appendChild(row);});
   }
   function enhanceDetail(){
-    const file=location.pathname.split('/').pop();
+    const slug=location.pathname.split('/').filter(Boolean).pop()||'';
+    const file=slug.endsWith('.html')?slug:(slug?slug+'.html':'');
     const id=productByPage[file];
     if(!id)return;
 
@@ -201,9 +205,13 @@
       <section class="checkout-panel">
         <div class="eyebrow">CHECKOUT</div><h1>結帳資料</h1>
         <form id="checkoutForm">
-          <label>姓名<input name="name" required autocomplete="name"></label>
-          <label>手機<input name="phone" required autocomplete="tel"></label>
-          <label>Email<input name="email" type="email" required autocomplete="email"></label>
+          <label>收件人姓名<input name="name" required autocomplete="name" maxlength="80" value="${escAttr(formState.name)}"></label>
+          <label>聯絡手機<input name="phone" required autocomplete="tel" maxlength="40" value="${escAttr(formState.phone)}"></label>
+          <label>Email<input name="email" type="email" required autocomplete="email" value="${escAttr(formState.email)}"></label>
+          <div class="checkout-address-grid">
+            <label>郵遞區號<input name="postalCode" required inputmode="numeric" autocomplete="postal-code" maxlength="6" placeholder="例如 106" value="${escAttr(formState.postalCode)}"></label>
+            <label>收件地址<input name="address" required autocomplete="street-address" maxlength="200" placeholder="縣市、區域、道路與門牌" value="${escAttr(formState.address)}"></label>
+          </div>
           <label>配送方式<select name="shippingMethod" id="shippingMethod">${ship}</select></label>
           <p id="shippingNote" class="checkout-help"></p>
           <label>付款方式<select name="paymentMethod" id="paymentMethod">
@@ -308,7 +316,7 @@
     const items=Object.entries(cart).filter(([id,q])=>C.products[id]&&q>0).map(([id,quantity])=>({id,quantity}));
     btn.disabled=true; btn.textContent='建立訂單中…'; status.textContent='';
     try{
-      const base=(C.apiBaseUrl||'').replace(/\/$/,''); const r=await fetch(base+'/api/ecpay/checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({items,customer:{name:fd.get('name'),phone:fd.get('phone'),email:fd.get('email'),note:fd.get('note'),shippingMethod:fd.get('shippingMethod'),paymentMethod:fd.get('paymentMethod')}})});
+      const base=(C.apiBaseUrl||'').replace(/\/$/,''); const r=await fetch(base+'/api/ecpay/checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({items,customer:{name:fd.get('name'),phone:fd.get('phone'),email:fd.get('email'),postalCode:fd.get('postalCode'),address:fd.get('address'),note:fd.get('note'),shippingMethod:fd.get('shippingMethod'),paymentMethod:fd.get('paymentMethod')}})});
       const data=await r.json(); if(!r.ok) throw new Error(data.error||'建立訂單失敗');
       sessionStorage.setItem('grabacup_last_order',data.orderNo); const form=document.createElement('form'); form.method='POST'; form.action=data.action; form.style.display='none'; Object.entries(data.fields).forEach(([k,v])=>{const i=document.createElement('input');i.type='hidden';i.name=k;i.value=v;form.appendChild(i)}); document.body.appendChild(form); form.submit();
     }catch(err){status.textContent=err.message+'。若網站放在 GitHub Pages，請先設定 shop-config.js 的 apiBaseUrl 指向已部署的 Node 後端。'; btn.disabled=false;btn.textContent='重新前往綠界付款';}

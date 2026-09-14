@@ -470,3 +470,37 @@
 
 /* Password visibility toggle */
 .password-wrap{position:relative;display:block;width:100%}.password-wrap input{width:100%;padding-right:68px!important}.password-toggle{position:absolute;right:9px;top:50%;transform:translateY(-50%);border:0;background:transparent;color:var(--brown);font-size:13px;font-weight:900;line-height:1;padding:8px;cursor:pointer;border-radius:8px}.password-toggle:hover{background:var(--cream)}.password-toggle:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
+
+
+/* Marketing proof and lead capture */
+.testimonial-section{background:#fff}
+.testimonial-head{display:flex;justify-content:space-between;align-items:end;gap:28px;margin-bottom:32px}
+.testimonial-head h2{margin:6px 0 10px}
+.demo-proof-badge{display:inline-flex;flex:0 0 auto;padding:8px 12px;border:1px solid rgba(200,138,54,.35);border-radius:999px;background:#fff7e8;color:#876026;font-size:11px;font-weight:900}
+.testimonial-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.testimonial-card{background:var(--cream2);border:1px solid var(--line);border-radius:22px;padding:25px;box-shadow:0 8px 28px rgba(70,35,20,.05)}
+.testimonial-label{font-size:11px;font-weight:900;letter-spacing:.12em;color:var(--gold)}
+.testimonial-stars{margin:10px 0 12px;color:var(--gold);letter-spacing:.08em}
+.testimonial-card blockquote{margin:0;color:var(--brown);font-family:Georgia,"Noto Serif TC",serif;font-size:19px;line-height:1.7}
+.testimonial-card p{margin:15px 0 0;color:var(--muted);font-size:12px}
+.lead-section{background:var(--brown);color:#fff}
+.lead-box{display:grid;grid-template-columns:.85fr 1.15fr;gap:56px;align-items:center}
+.lead-copy h2{margin:6px 0 12px;color:#fff;font-size:40px;line-height:1.2}
+.lead-copy p{margin:0;color:#ead7cb}
+.lead-form{display:grid;gap:15px;padding:26px;border:1px solid rgba(255,255,255,.16);border-radius:22px;background:rgba(255,255,255,.08)}
+.lead-form-grid{display:grid;grid-template-columns:.75fr 1.25fr;gap:12px}
+.lead-form label{display:grid;gap:7px;color:#fff;font-size:13px;font-weight:800}
+.lead-form input{width:100%;min-height:48px;border:1px solid rgba(255,255,255,.28);border-radius:12px;padding:11px 13px;background:#fff;color:var(--ink);outline:0}
+.lead-form input:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(200,138,54,.22)}
+.lead-consent{grid-template-columns:20px 1fr!important;align-items:start;font-weight:500!important;line-height:1.55}
+.lead-consent input{width:18px;min-height:18px;margin-top:2px}
+.lead-consent a{text-decoration:underline;text-underline-offset:3px}
+.lead-honeypot{position:absolute!important;left:-10000px!important;width:1px!important;height:1px!important;overflow:hidden!important}
+.lead-status{min-height:22px;margin:0;font-size:13px;color:#fff}
+.lead-status.is-success{color:#d9f7df}.lead-status.is-error{color:#ffd7d7}
+.checkout-address-grid{display:grid;grid-template-columns:140px 1fr;gap:12px}
+.crm-note{margin-top:-8px;color:var(--muted);font-size:13px}
+@media(max-width:800px){.testimonial-head{align-items:flex-start;flex-direction:column}.testimonial-grid,.lead-box{grid-template-columns:1fr}.lead-form-grid{grid-template-columns:1fr}.lead-box{gap:28px}.checkout-address-grid{grid-template-columns:1fr}}
+
+/* Hide the private CRM entry from all public navigation, including cached pages. */
+.links a[href="crm-admin.html"]{display:none!important}

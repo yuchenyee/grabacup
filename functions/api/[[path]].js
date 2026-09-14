@@ -186,6 +186,8 @@ async function ensureSchema(env){
       fulfillment_status TEXT DEFAULT 'pending',
       shipping_method TEXT DEFAULT '',
       payment_method TEXT DEFAULT '',
+      postal_code TEXT DEFAULT '',
+      shipping_address TEXT DEFAULT '',
       note TEXT DEFAULT '',
       ecpay_rtn_code TEXT DEFAULT '',
       ecpay_trade_no TEXT DEFAULT '',
@@ -233,9 +235,43 @@ async function ensureSchema(env){
       message TEXT DEFAULT '',
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY(order_id) REFERENCES orders(id) ON DELETE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS marketing_leads (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      email TEXT UNIQUE NOT NULL,
+      name TEXT DEFAULT '',
+      source TEXT DEFAULT 'website',
+      consent INTEGER NOT NULL DEFAULT 0,
+      status TEXT DEFAULT 'subscribed',
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS contact_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      contact_type TEXT DEFAULT '',
+      name TEXT NOT NULL,
+      email TEXT NOT NULL,
+      phone TEXT DEFAULT '',
+      subject TEXT NOT NULL,
+      message TEXT NOT NULL,
+      consent INTEGER NOT NULL DEFAULT 0,
+      status TEXT DEFAULT 'new',
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     )`
   ];
   await env.DB.batch(sqls.map(sql=>env.DB.prepare(sql)));
+  const orderColumns=(await env.DB.prepare('PRAGMA table_info(orders)').all()).results||[];
+  const orderColumnNames=new Set(orderColumns.map(column=>String(column.name||'')));
+  const orderMigrations=[
+    ['postal_code',"ALTER TABLE orders ADD COLUMN postal_code TEXT DEFAULT ''"],
+    ['shipping_address',"ALTER TABLE orders ADD COLUMN shipping_address TEXT DEFAULT ''"]
+  ];
+  for(const [column,sql] of orderMigrations){
+    if(orderColumnNames.has(column))continue;
+    try{await env.DB.prepare(sql).run();}
+    catch(error){if(!String(error?.message||error).toLowerCase().includes('duplicate column'))throw error;}
+  }
   for(const [name,color] of [['新客','#B88632'],['回購客','#2E7D32'],['VIP','#C62828'],['企業客戶','#6A1B9A'],['大量採購','#1565C0']]){
     await env.DB.prepare('INSERT OR IGNORE INTO tags(name,color) VALUES(?,?)').bind(name,color).run();
   }
@@ -300,9 +336,9 @@ async function refreshAutoTags(env,customerId,orderType,total){
 async function persistOrder(env,{no,customer,orderType='retail',items,subtotal,discount=0,shipping=0,paymentFee=0,total,shippingMethod='',paymentMethod='',note=''}) {
   const cst=await upsertCustomer(env,customer);
   const ins=await env.DB.prepare(`INSERT OR IGNORE INTO orders
-    (order_no,customer_id,customer_email,order_type,subtotal,discount,shipping_fee,payment_fee,total,payment_status,fulfillment_status,shipping_method,payment_method,note,created_at,updated_at)
-    VALUES(?,?,?,?,?,?,?,?,?,'pending','pending',?,?,?,?,?)`)
-    .bind(no,cst?.id||null,normalizeEmail(customer?.email),orderType,subtotal,discount,shipping,paymentFee,total,shippingMethod,paymentMethod,safeText(note,500),nowIso(),nowIso()).run();
+    (order_no,customer_id,customer_email,order_type,subtotal,discount,shipping_fee,payment_fee,total,payment_status,fulfillment_status,shipping_method,payment_method,postal_code,shipping_address,note,created_at,updated_at)
+    VALUES(?,?,?,?,?,?,?,?,?,'pending','pending',?,?,?,?,?,?,?)`)
+    .bind(no,cst?.id||null,normalizeEmail(customer?.email),orderType,subtotal,discount,shipping,paymentFee,total,shippingMethod,paymentMethod,safeText(customer?.postalCode,10),safeText(customer?.address,200),safeText(note,500),nowIso(),nowIso()).run();
   let order=await env.DB.prepare('SELECT * FROM orders WHERE order_no=?').bind(no).first();
   if(ins.meta.changes && order){
     for(const x of items){
@@ -330,6 +366,10 @@ async function normalCheckout(request,env){
   const cfg=ecpayConfig(env);
   if(!cfg.merchantId||!cfg.hashKey||!cfg.hashIV)return json({error:'綠界正式環境金鑰尚未設定'},500);
   const body=await bodyJson(request);
+  const customer=body.customer||{};
+  if(!String(customer.name||'').trim()||!normalizeEmail(customer.email)||!String(customer.phone||'').trim()||!String(customer.postalCode||'').trim()||!String(customer.address||'').trim()){
+    return json({error:'請完整填寫姓名、手機、Email、郵遞區號與收件地址'},400);
+  }
   const items=Array.isArray(body.items)?body.items:[];
   const normalized=items.map(x=>({id:String(x.id||''),quantity:Math.max(1,Math.min(99,parseInt(x.quantity)||1))})).filter(x=>PRODUCTS[x.id]);
   if(!normalized.length)return json({error:'購物車沒有有效商品'},400);
@@ -405,6 +445,39 @@ export async function onRequest(context){
 
   if(path==='/health'&&method==='GET')return json({ok:true,platform:'cloudflare-pages-functions',mode:String(env.ECPAY_MODE||'stage')});
 
+  if(path==='/contact'&&method==='POST'){
+    try{
+      await ensureSchema(env);
+      const b=await bodyJson(request);
+      if(String(b.website||'').trim())return json({ok:true,message:'訊息已送出'});
+      const name=safeText(b.name,80),email=normalizeEmail(b.email),subject=safeText(b.subject,160),message=safeText(b.message,2000);
+      if(b.consent!==true)return json({error:'請先同意隱私權政策'},400);
+      if(!name||!email||!email.includes('@')||!subject||!message)return json({error:'請完整填寫姓名、Email、主旨與訊息'},400);
+      await env.DB.prepare(`INSERT INTO contact_messages(contact_type,name,email,phone,subject,message,consent,status,created_at,updated_at)
+        VALUES(?,?,?,?,?,?,1,'new',?,?)`)
+        .bind(safeText(b.type,60),name,email,safeText(b.phone,40),subject,message,nowIso(),nowIso()).run();
+      return json({ok:true,message:'訊息已送出，我們會儘快回覆你。'});
+    }catch(e){return json({error:e.message||'目前無法送出訊息'},500);}
+  }
+
+  if(path==='/marketing/subscribe'&&method==='POST'){
+    try{
+      await ensureSchema(env);
+      const b=await bodyJson(request);
+      if(String(b.website||'').trim())return json({ok:true,message:'訂閱成功'});
+      const email=normalizeEmail(b.email),consent=b.consent===true;
+      if(!consent)return json({error:'請先勾選同意接收新品與優惠資訊'},400);
+      if(!email||email.length>160||!email.includes('@'))return json({error:'請輸入有效的 Email'},400);
+      const name=safeText(b.name,80),source=safeText(b.source||'website',60)||'website';
+      await env.DB.prepare(`INSERT INTO marketing_leads(email,name,source,consent,status,created_at,updated_at)
+        VALUES(?,?,?,?,?,?,?) ON CONFLICT(email) DO UPDATE SET
+        name=CASE WHEN excluded.name<>'' THEN excluded.name ELSE marketing_leads.name END,
+        source=excluded.source,consent=1,status='subscribed',updated_at=excluded.updated_at`)
+        .bind(email,name,source,1,'subscribed',nowIso(),nowIso()).run();
+      return json({ok:true,message:'訂閱成功！之後有新品與優惠會優先通知你。'});
+    }catch(e){return json({error:e.message||'目前無法完成訂閱'},500);}
+  }
+
   if(path==='/member/register'&&method==='POST'){
     try{
       await ensureSchema(env);
@@ -479,7 +552,9 @@ export async function onRequest(context){
     const orders=(await env.DB.prepare(`SELECT o.*,c.name customer_name,s.carrier,s.tracking_no,s.status shipping_status
       FROM orders o LEFT JOIN customers c ON c.id=o.customer_id LEFT JOIN shipments s ON s.order_id=o.id ORDER BY o.id DESC LIMIT 200`).all()).results||[];
     const tags=(await env.DB.prepare('SELECT * FROM tags ORDER BY id').all()).results||[];
-    return json({ok:true,customers,orders,tags});
+    const leads=(await env.DB.prepare('SELECT id,email,name,source,status,created_at,updated_at FROM marketing_leads ORDER BY id DESC LIMIT 500').all()).results||[];
+    const contacts=(await env.DB.prepare('SELECT id,contact_type,name,email,phone,subject,message,status,created_at FROM contact_messages ORDER BY id DESC LIMIT 500').all()).results||[];
+    return json({ok:true,customers,orders,tags,leads,contacts});
   }
 
   if(path==='/admin/customer'&&method==='PUT'){

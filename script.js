@@ -1,4 +1,7 @@
 document.addEventListener('DOMContentLoaded',()=>{
+  const floatingShortcutScript=document.createElement('script');
+  floatingShortcutScript.src='floating-links.js';
+  document.head.appendChild(floatingShortcutScript);
   // Public navigation must not expose the CRM administration entry.
   document.querySelectorAll('.links a[href="crm-admin.html"]').forEach(link=>link.remove());
   const file=location.pathname.split('/').pop()||'index.html';

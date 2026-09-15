@@ -504,3 +504,22 @@
 
 /* Hide the private CRM entry from all public navigation, including cached pages. */
 .links a[href="crm-admin.html"]{display:none!important}
+
+/* Fixed shortcuts shared by all public pages. */
+.floating-actions{position:fixed;right:18px;bottom:calc(18px + env(safe-area-inset-bottom));z-index:1200;display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.floating-action{min-height:46px;min-width:46px;padding:7px 13px;display:inline-flex;align-items:center;justify-content:flex-start;gap:8px;border:1px solid rgba(87,35,20,.14);border-radius:999px;background:#fff;color:var(--brown);box-shadow:0 5px 18px rgba(42,18,11,.16);font-size:13px;font-weight:900;line-height:1.2;cursor:pointer;transition:transform .18s,box-shadow .18s}
+.floating-action:hover{transform:translateX(-3px);box-shadow:0 8px 22px rgba(42,18,11,.22)}
+.floating-action:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+.floating-action__icon{display:grid;place-items:center;width:30px;min-width:30px;height:30px;font-size:21px;font-weight:900;line-height:1}
+.floating-action__text{white-space:nowrap}
+.floating-action--line{background:#06c755;color:#fff;border-color:#06c755}
+.floating-action--line .floating-action__icon{font-size:9px;letter-spacing:-.05em}
+.floating-action--facebook{background:#1877f2;color:#fff;border-color:#1877f2}
+.floating-action--facebook .floating-action__icon{font-family:Arial,sans-serif;font-size:25px}
+.floating-action--instagram{background:linear-gradient(135deg,#feda75,#d62976,#962fbf);color:#fff;border-color:#d62976}
+.floating-action--instagram .floating-action__icon{font-size:27px}
+.floating-action--shop{background:var(--red);color:#fff;border-color:var(--red)}
+.floating-action--top{background:var(--cream2)}
+.floating-action.is-pending{opacity:.62;cursor:not-allowed;filter:grayscale(.55)}
+.floating-action.is-pending:hover{transform:none;box-shadow:0 5px 18px rgba(42,18,11,.16)}
+@media(max-width:600px){.floating-actions{right:12px;bottom:calc(12px + env(safe-area-inset-bottom));gap:7px}.floating-action{width:46px;height:46px;padding:7px;justify-content:center}.floating-action__text{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}}

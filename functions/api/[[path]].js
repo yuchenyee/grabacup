@@ -153,6 +153,8 @@ async function bodyJson(request){
 const nowIso=()=>new Date().toISOString();
 const normalizeEmail=v=>String(v||'').trim().toLowerCase();
 const authSecret=env=>String(env.MEMBER_SECRET||env.ENTERPRISE_SECRET||'');
+const RESET_TTL_MS=20*60*1000;
+const RESET_COOLDOWN_MS=10*60*1000;
 
 async function ensureSchema(env){
   if(!env.DB) throw new Error('D1 binding DB 尚未啟用');
@@ -166,6 +168,7 @@ async function ensureSchema(env){
       tax_id TEXT DEFAULT '',
       password_hash TEXT DEFAULT '',
       password_salt TEXT DEFAULT '',
+      session_version INTEGER NOT NULL DEFAULT 0,
       member_status TEXT DEFAULT 'guest',
       notes TEXT DEFAULT '',
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -258,9 +261,23 @@ async function ensureSchema(env){
       status TEXT DEFAULT 'new',
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS password_reset_tokens (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      customer_id INTEGER NOT NULL,
+      token_hash TEXT UNIQUE NOT NULL,
+      expires_at TEXT NOT NULL,
+      used_at TEXT DEFAULT '',
+      requested_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(customer_id) REFERENCES customers(id) ON DELETE CASCADE
     )`
   ];
   await env.DB.batch(sqls.map(sql=>env.DB.prepare(sql)));
+  const customerColumns=(await env.DB.prepare('PRAGMA table_info(customers)').all()).results||[];
+  if(!customerColumns.some(column=>column.name==='session_version')){
+    try{await env.DB.prepare('ALTER TABLE customers ADD COLUMN session_version INTEGER NOT NULL DEFAULT 0').run();}
+    catch(error){if(!String(error?.message||error).toLowerCase().includes('duplicate column'))throw error;}
+  }
   const orderColumns=(await env.DB.prepare('PRAGMA table_info(orders)').all()).results||[];
   const orderColumnNames=new Set(orderColumns.map(column=>String(column.name||'')));
   const orderMigrations=[
@@ -283,6 +300,27 @@ async function passwordHash(password,saltB64=''){
   const bits=await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt,iterations:60000},key,256);
   return {salt:bytesToBase64Url(salt),hash:bytesToBase64Url(new Uint8Array(bits))};
 }
+async function resetTokenHash(token){
+  const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(String(token)));
+  return bytesToBase64Url(new Uint8Array(digest));
+}
+function emailHtmlEscape(value){
+  return String(value||'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+async function sendPasswordResetEmail(env,to,resetUrl){
+  const apiKey=String(env.RESEND_API_KEY||''),from=String(env.PASSWORD_RESET_FROM||'');
+  if(!apiKey||!from)throw new Error('密碼重設寄信服務尚未設定');
+  const safeUrl=emailHtmlEscape(resetUrl);
+  const response=await fetch('https://api.resend.com/emails',{
+    method:'POST',
+    headers:{authorization:`Bearer ${apiKey}`,'content-type':'application/json'},
+    body:JSON.stringify({
+      from,to:[to],subject:'GRAB A CUP 會員密碼重設',
+      html:`<div style="font-family:Arial,sans-serif;line-height:1.7;color:#3d241b"><h2>重設你的 GRAB A CUP 密碼</h2><p>我們收到你的密碼重設申請。請在 20 分鐘內點擊下方按鈕設定新密碼。</p><p><a href="${safeUrl}" style="display:inline-block;padding:12px 20px;border-radius:999px;background:#572314;color:#fff;text-decoration:none">設定新密碼</a></p><p style="color:#76665d;font-size:13px">若你沒有提出申請，請忽略這封信，你的密碼不會改變。</p></div>`
+    })
+  });
+  if(!response.ok)throw new Error('密碼重設信暫時無法寄出');
+}
 async function signAuth(payload,env,ttlMs=24*60*60*1000){
   const secret=authSecret(env);
   if(!secret) throw new Error('會員驗證金鑰尚未設定');
@@ -300,6 +338,13 @@ async function verifyAuth(request,env,role=''){
     if(role&&data.role!==role)return null;
     return data;
   }catch{return null;}
+}
+async function verifyMemberAuth(request,env){
+  const auth=await verifyAuth(request,env,'member');
+  if(!auth)return null;
+  const member=await env.DB.prepare('SELECT id,email,session_version FROM customers WHERE id=?').bind(auth.id).first();
+  if(!member||Number(auth.v||0)!==Number(member.session_version||0))return null;
+  return {...auth,email:member.email};
 }
 async function upsertCustomer(env,customer={}){
   await ensureSchema(env);
@@ -497,7 +542,7 @@ export async function onRequest(context){
         customer=await env.DB.prepare('SELECT * FROM customers WHERE id=?').bind(ins.meta.last_row_id).first();
       }
       await setCustomerTag(env,customer.id,'新客');
-      return json({ok:true,token:await signAuth({id:customer.id,email,role:'member'},env),member:{id:customer.id,email,name:customer.name}});
+      return json({ok:true,token:await signAuth({id:customer.id,email,role:'member',v:Number(customer.session_version||0)},env),member:{id:customer.id,email,name:customer.name}});
     }catch(e){return json({error:e.message||'註冊失敗'},500);}
   }
 
@@ -509,13 +554,61 @@ export async function onRequest(context){
       if(!customer?.password_hash)return json({error:'Email 或密碼錯誤'},401);
       const ph=await passwordHash(password,customer.password_salt);
       if(ph.hash!==customer.password_hash)return json({error:'Email 或密碼錯誤'},401);
-      return json({ok:true,token:await signAuth({id:customer.id,email,role:'member'},env),member:{id:customer.id,email,name:customer.name}});
+      return json({ok:true,token:await signAuth({id:customer.id,email,role:'member',v:Number(customer.session_version||0)},env),member:{id:customer.id,email,name:customer.name}});
     }catch(e){return json({error:e.message||'登入失敗'},500);}
+  }
+
+  if(path==='/member/forgot-password'&&method==='POST'){
+    try{
+      await ensureSchema(env);
+      if(!env.RESEND_API_KEY||!env.PASSWORD_RESET_FROM)return json({error:'密碼重設寄信服務尚未設定，請聯絡網站管理員'},503);
+      const b=await bodyJson(request),email=normalizeEmail(b.email);
+      if(!email||email.length>160||!email.includes('@'))return json({error:'請輸入有效的 Email'},400);
+      const customer=await env.DB.prepare('SELECT id,password_hash FROM customers WHERE email=?').bind(email).first();
+      const generic={ok:true,message:'如果此 Email 已註冊，我們會寄出密碼重設信，請檢查收件匣與垃圾郵件。'};
+      if(!customer?.password_hash)return json(generic);
+      const cutoff=new Date(Date.now()-RESET_COOLDOWN_MS).toISOString();
+      const recent=await env.DB.prepare("SELECT id FROM password_reset_tokens WHERE customer_id=? AND requested_at>? AND used_at='' LIMIT 1").bind(customer.id,cutoff).first();
+      if(recent)return json(generic);
+      const rawToken=bytesToBase64Url(crypto.getRandomValues(new Uint8Array(32)));
+      const tokenHash=await resetTokenHash(rawToken),expiresAt=new Date(Date.now()+RESET_TTL_MS).toISOString(),now=nowIso();
+      await env.DB.prepare("UPDATE password_reset_tokens SET used_at=? WHERE customer_id=? AND used_at=''").bind(now,customer.id).run();
+      await env.DB.prepare('INSERT INTO password_reset_tokens(customer_id,token_hash,expires_at,requested_at) VALUES(?,?,?,?)')
+        .bind(customer.id,tokenHash,expiresAt,now).run();
+      try{await sendPasswordResetEmail(env,email,`${origin(request,env)}/member.html?reset=${encodeURIComponent(rawToken)}`);}
+      catch(error){
+        await env.DB.prepare("UPDATE password_reset_tokens SET used_at=? WHERE token_hash=? AND used_at=''").bind(nowIso(),tokenHash).run();
+        throw error;
+      }
+      return json(generic);
+    }catch(e){return json({error:e.message||'目前無法寄出密碼重設信'},500);}
+  }
+
+  if(path==='/member/reset-password'&&method==='POST'){
+    try{
+      await ensureSchema(env);
+      const b=await bodyJson(request),token=String(b.token||''),password=String(b.password||'');
+      if(token.length<32)return json({error:'重設連結無效，請重新申請'},400);
+      if(password.length<8||password.length>128)return json({error:'新密碼需為 8 至 128 碼'},400);
+      const tokenHash=await resetTokenHash(token),now=nowIso();
+      const reset=await env.DB.prepare("SELECT id,customer_id FROM password_reset_tokens WHERE token_hash=? AND used_at='' AND expires_at>? LIMIT 1").bind(tokenHash,now).first();
+      if(!reset)return json({error:'重設連結無效或已過期，請重新申請'},400);
+      const ph=await passwordHash(password);
+      const marker=`${now}#${crypto.randomUUID()}`;
+      const results=await env.DB.batch([
+        env.DB.prepare("UPDATE password_reset_tokens SET used_at=? WHERE id=? AND used_at='' AND expires_at>?").bind(marker,reset.id,now),
+        env.DB.prepare("UPDATE customers SET password_hash=?,password_salt=?,session_version=session_version+1,updated_at=? WHERE id=? AND EXISTS(SELECT 1 FROM password_reset_tokens WHERE id=? AND used_at=?)")
+          .bind(ph.hash,ph.salt,now,reset.customer_id,reset.id,marker)
+      ]);
+      if(!results[0]?.meta?.changes||!results[1]?.meta?.changes)return json({error:'重設連結已使用，請重新申請'},400);
+      await env.DB.prepare("UPDATE password_reset_tokens SET used_at=? WHERE customer_id=? AND used_at=''").bind(now,reset.customer_id).run();
+      return json({ok:true,message:'密碼已更新，請使用新密碼登入。'});
+    }catch(e){return json({error:e.message||'目前無法更新密碼'},500);}
   }
 
   if(path==='/member/me'&&method==='GET'){
     await ensureSchema(env);
-    const a=await verifyAuth(request,env,'member'); if(!a)return json({error:'請重新登入'},401);
+    const a=await verifyMemberAuth(request,env); if(!a)return json({error:'請重新登入'},401);
     const member=await env.DB.prepare('SELECT id,email,name,phone,company,tax_id,member_status,created_at FROM customers WHERE id=?').bind(a.id).first();
     const tags=(await env.DB.prepare('SELECT t.name,t.color FROM tags t JOIN customer_tags ct ON ct.tag_id=t.id WHERE ct.customer_id=?').bind(a.id).all()).results||[];
     return json({ok:true,member:{...member,tags},orders:await ordersForCustomer(env,a.id,a.email)});
@@ -523,7 +616,7 @@ export async function onRequest(context){
 
   if(path==='/member/profile'&&method==='PUT'){
     await ensureSchema(env);
-    const a=await verifyAuth(request,env,'member'); if(!a)return json({error:'請重新登入'},401);
+    const a=await verifyMemberAuth(request,env); if(!a)return json({error:'請重新登入'},401);
     const b=await bodyJson(request);
     await env.DB.prepare('UPDATE customers SET name=?,phone=?,company=?,tax_id=?,updated_at=? WHERE id=?')
       .bind(safeText(b.name,80),safeText(b.phone,40),safeText(b.company,120),safeText(b.taxId,20),nowIso(),a.id).run();

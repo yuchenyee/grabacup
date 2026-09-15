@@ -2,6 +2,13 @@
 
 這一版已將原本 Express 的企業登入 / 企業價格 / 綠界結帳 API 改為 Cloudflare Pages Functions。
 
+## 會員忘記密碼寄信設定
+
+會員中心使用 Resend 寄送一次性密碼重設信。請在 Cloudflare Pages 的
+Variables and Secrets 設定 `RESEND_API_KEY`（Secret）與
+`PASSWORD_RESET_FROM`（例如 `GRAB A CUP <member@your-domain.com>`）。寄件網域需先在
+Resend 完成驗證。重設連結 20 分鐘後失效，且使用一次後即作廢。
+
 ## 1. GitHub
 把 `web` 資料夾內的內容推到 GitHub Repository。
 
